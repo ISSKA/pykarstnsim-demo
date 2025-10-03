@@ -269,7 +269,7 @@ wheels = [
 [[package]]
 name = "pykarstnsim"
 version = "1.0.1"
-source = { git = "https://github.com/ISSKA/pykarstnsim.git#f5fcfc797d19438b0f0ea66bd97942e55e505bce" }
+source = { git = "https://github.com/ISSKA/pykarstnsim.git#67ebbcea31e4c2b9d1d08b9e139ea38ba69fca95" }
 dependencies = [
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },

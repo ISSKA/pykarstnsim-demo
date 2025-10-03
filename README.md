@@ -36,6 +36,33 @@ Both this tool and Visual KARSYS are developed and maintained by [SISKA (Swiss I
 
 > **Note for Visual KARSYS Users**: The KarstNSim feature currently requires a specific license tier. If you're already using Visual KARSYS and are interested in trying this tool, please contact us at [info@visualkarsys.com](mailto:info@visualkarsys.com) to discuss access. This license requirement is temporary while the feature is being stabilized and will be more widely available once fully integrated into Visual KARSYS.
 
+## Prerequisites
+
+This tool requires:
+
+- **Git** - For cloning the repository
+- **C++ Compiler** - Required to build PyKarstNSim dependencies
+
+### Installation by Platform
+
+**Linux:**
+```bash
+sudo apt-get update
+sudo apt-get install git build-essential
+```
+
+**Windows:**
+
+Using [Chocolatey](https://chocolatey.org/):
+```powershell
+choco install git cmake visualstudio2019buildtools visualstudio2019-workload-vctools
+```
+
+**macOS:**
+```bash
+xcode-select --install
+```
+
 ## Quick Start
 
 This repository serves as both a **demonstration** (try the example) and a **production tool** (process your own Visual KARSYS exports).
