@@ -1,10 +1,21 @@
 # PyKarstNSim Demo
 
-A demonstration tool for generating 3D karst networks from data exported from [Visual KARSYS](https://www.visualkarsys.com/).
+A bridge tool for generating 3D karst networks from [Visual KARSYS](https://www.visualkarsys.com/) exports using [PyKarstNSim](https://github.com/ISSKA/pykarstnsim).
 
-## About
+## Overview
 
-This project provides a command-line interface to process Visual KARSYS project exports and generate realistic 3D karst network simulations using [PyKarstNSim](https://github.com/ISSKA/pykarstnsim).
+This tool enables a complete workflow for 3D karst network simulation:
+
+```
+Visual KARSYS → Export ZIP → KarstNSim Simulation → Import Results → Visual KARSYS
+     (setup)                  (this tool)              (analysis)
+```
+
+### The Workflow
+
+1. **Export from Visual KARSYS**: Use the KarstNSim wizard step in Visual KARSYS to export your project data as a ZIP file
+2. **Run Simulation**: Process the ZIP file with this tool to generate 3D karst network simulations
+3. **Import Results**: Load the output back into Visual KARSYS for visualization and analysis, or use the standalone debug viewer
 
 ### What is Visual KARSYS?
 
@@ -19,57 +30,82 @@ Visual KARSYS is made available for scientists, engineers, managers and stakehol
 - waste deposits
 - etc.
 
-This tool allows you to export your Visual KARSYS project data and use it to generate detailed 3D karst network simulations using the powerful [KarstNSim](https://github.com/ring-team/KarstNSim_Public) algorithm.
+This tool acts as the computational engine for Visual KARSYS's KarstNSim workflow, leveraging the powerful [KarstNSim](https://github.com/ring-team/KarstNSim_Public) algorithm to generate realistic 3D karst conduit networks.
 
-## Quick start
+Both this tool and Visual KARSYS are developed and maintained by [SISKA (Swiss Institute for Speleology and Karst Studies)](https://www.isska.ch).
 
-### Option 1: Using [uv](https://docs.astral.sh/uv/) (recommended)
+> **Note for Visual KARSYS Users**: The KarstNSim feature currently requires a specific license tier. If you're already using Visual KARSYS and are interested in trying this tool, please contact us at [info@visualkarsys.com](mailto:info@visualkarsys.com) to discuss access. This license requirement is temporary while the feature is being stabilized and will be more widely available once fully integrated into Visual KARSYS.
+
+## Quick Start
+
+This repository serves as both a **demonstration** (try the example) and a **production tool** (process your own Visual KARSYS exports).
+
+### Try the Demo
+
+An example Visual KARSYS export is included to help you understand the workflow:
+
+**Using [uv](https://docs.astral.sh/uv/) (recommended):**
 
 ```bash
 # Clone the repository
 git clone https://github.com/ISSKA/pykarstnsim-demo.git
 cd pykarstnsim-demo
 
-# Run directly with uv (will install dependencies automatically)
+# Run the example directly (dependencies installed automatically)
 uv run demo.py example/example.zip
 ```
 
-### Option 2: Using pip
+**Using pip:**
 
 ```bash
 # Clone the repository
 git clone https://github.com/ISSKA/pykarstnsim-demo.git
 cd pykarstnsim-demo
 
-# Create a virtual environment (recommended)
+# Create and activate a virtual environment
 python -m venv venv
-source venv/bin/activate  # On Windows use: venv\Scripts\activate
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install the package
 pip install -e .
-# Run the demo
+
+# Run the example
 python demo.py example/example.zip
 ```
 
-## Usage
+This generates `output.txt` containing the simulated karst network.
 
-### Running the Example
+### Process Your Own Data
 
-An example Visual KARSYS export is provided in the `example/` directory:
+#### Step 1: Export from Visual KARSYS
 
-**Using uv:**
+1. Open your project in Visual KARSYS
+2. Navigate to the **KarstNSim wizard step** (licensed version required)
+3. Configure your simulation parameters
+4. **Export** your project as a ZIP file
+
+#### Step 2: Run the Simulation
+
 ```bash
-uv run python demo.py example/example.zip
+uv run demo.py path/to/your_export.zip -o results/my_karst_network.txt
 ```
 
-**Using pip (with activated virtual environment):**
-```bash
-python demo.py example/example.zip
-```
+You can override any export parameters using CLI flags (see [CLI Arguments](#cli-arguments) below).
 
-By default, results will be saved to `output.txt`. You can specify a custom output path with the `-o` option.
+#### Step 3: Import Back to Visual KARSYS
 
-## CLI Arguments
+1. Return to the **KarstNSim wizard step** in Visual KARSYS
+2. **Import** the generated output file (`my_karst_network.txt`)
+3. Visualize and analyze your 3D karst network
+
+**Alternative**: Use the standalone [debug viewer](#debug-viewer) (no Visual KARSYS license needed).
+
+
+## Advanced Usage
+
+### CLI Arguments
+
+The tool accepts Visual KARSYS ZIP exports and allows parameter overrides for experimentation.
 
 ### Required Arguments
 
@@ -80,11 +116,11 @@ By default, results will be saved to `output.txt`. You can specify a custom outp
 #### General Options
 
 - `-o`, `--output` - Path to the output file (default: `output.txt`)
-- `--debug` - Output intermediate files in a KarstNSim-compatible format
+- `--debug` - Generate intermediate debug files for inspection (enables use of debug viewer)
 
-#### Simulation Parameters
+#### Simulation Parameters (Override Export Settings)
 
-These parameters allow you to override settings from the Visual KARSYS export:
+These parameters let you experiment with different settings without re-exporting from Visual KARSYS:
 
 - `--name` - Simulation name
 - `--seed` - Random seed for reproducible results
@@ -98,38 +134,73 @@ These parameters allow you to override settings from the Visual KARSYS export:
 
 ### Examples
 
-Generate a simulation with a specific seed and output file:
+**Basic usage with custom output:**
 ```bash
-uv run python demo.py example/example.zip --seed 42 -o my_results.txt
+uv run demo.py example/example.zip -o results/simulation_001.txt
 ```
 
-Override multiple simulation parameters:
+**Override parameters for experimentation:**
 ```bash
-uv run python demo.py example/example.zip \
+uv run demo.py example/example.zip \
     --k-pts 20 \
     --cohesion-factor 0.95 \
     --n-sinks 200 \
     --seed 123 \
-    -o results/simulation_001.txt
+    -o results/experiment_high_density.txt
 ```
 
-Enable debug mode to output intermediate files:
+**Enable debug mode for inspection:**
 ```bash
-uv run python demo.py example/example.zip --debug
-# will create debug_...txt files in the current directory
+uv run demo.py example/example.zip --debug
+# Generates debug_*.txt files that can be loaded in debug_viewer.html
 ```
 
-## Output
+## Visualizing Results
 
-The tool generates text files containing the simulated karst network geometry. These output files can be:
+### Option 1: Visual KARSYS (Recommended)
 
-- **Reimported into Visual KARSYS** (for licensed users only) - Use the KarstNSim step in the Visual KARSYS wizard to export/import your generated karst networks back into your project for further analysis and visualization
-- Used with other visualization and analysis tools
-- Further processed or analyzed using custom scripts
+**For licensed Visual KARSYS users:**
 
-The output format is compatible with the Visual KARSYS import workflow, enabling a complete round-trip from Visual KARSYS export → KarstNSim simulation → Visual KARSYS import.
+1. Open your project in Visual KARSYS
+2. Navigate to the KarstNSim wizard step
+3. Paste the content of the output file into the import field
+4. Visualize and analyze the 3D karst network with full Visual KARSYS capabilities
 
-## Dependencies
+This is the primary workflow for production use.
+
+### Option 2: Standalone Debug Viewer
+
+**For users without Visual KARSYS or quick inspection:**
+
+The included `debug_viewer.html` provides interactive 3D visualization without requiring Visual KARSYS.
+
+#### Usage
+
+1. Run the tool with `--debug` flag to generate intermediate files:
+   ```bash
+   uv run demo.py example/example.zip --debug
+   ```
+
+2. Open `debug_viewer.html` in any modern web browser
+
+3. Load the generated debug files using the file input fields:
+   - **Output File**: `debug_output.txt` (main karst network)
+   - **Surface File**: `debug_surface.txt` (terrain DEM)
+   - **Watertable/Inception Surfaces**: `debug_water_table_*.txt`, `debug_inception_surface_*.txt`
+   - **Springs and Sinks**: `debug_springs.txt`, `debug_sinks.txt`
+   - **Project Box** (optional): `debug_project_box.txt`
+
+4. Interact with the 3D scene:
+   - **Orbit**: Left-click and drag
+   - **Zoom**: Scroll wheel
+   - **Pan**: Right-click and drag
+   - **Toggle elements**: Use UI controls to show/hide axes, grid, project box, etc.
+
+The debug viewer is a standalone HTML file requiring no installation or dependencies.
+
+## Technical Details
+
+### Dependencies
 
 This project depends on:
 
@@ -137,7 +208,21 @@ This project depends on:
 - [Pydantic](https://docs.pydantic.dev/) - Data validation
 - [Shapely](https://shapely.readthedocs.io/) - Geometric operations
 
-## Citation
+### Output Format
+
+The tool generates text files in a format compatible with Visual KARSYS's KarstNSim import function. These files contain:
+
+- 3D karst conduit network geometry
+- Node positions and connectivity
+- Metadata for integration with Visual KARSYS projects
+
+For more details on the underlying algorithm and configuration options:
+
+- **PyKarstNSim**: https://github.com/ISSKA/pykarstnsim
+- **KarstNSim**: https://github.com/ring-team/KarstNSim_Public
+- **Config Reference**: https://github.com/ISSKA/KarstNSim_Public/blob/main/config_reference.md
+
+### Citation
 
 If you use this tool in your research, please cite the original KarstNSim publication:
 
@@ -151,24 +236,19 @@ If you use this tool in your research, please cite the original KarstNSim public
 }
 ```
 
-## Documentation
-
-For more information about the underlying simulation methodology and parameters:
-
-- **PyKarstNSim**: https://github.com/ISSKA/pykarstnsim
-- **KarstNSim**: https://github.com/ring-team/KarstNSim_Public
-- **Config Reference**: https://github.com/ISSKA/KarstNSim_Public/blob/main/config_reference.md
-- **Visual KARSYS**: https://www.visualkarsys.com/
-
-## License
-
-See [LICENSE](LICENSE) file for details.
-
 ## Contributing
 
 Contributions are welcome! Please feel free to submit issues or pull requests.
 
 ### Development Setup
+
+Clone the repository and set up the development environment:
+
+```bash
+git clone https://github.com/ISSKA/pykarstnsim-demo.git
+cd pykarstnsim-demo
+uv sync
+```
 
 To upgrade the PyKarstNSim dependency to the latest version:
 
@@ -178,39 +258,15 @@ uv sync --upgrade
 
 ### Editor Configuration
 
-Default VSCode settings are provided in `.vscode/settings.json.default`. Contributors can rename this file to `.vscode/settings.json` to use the project's default enforced options for consistent development experience.
+Default VSCode settings are provided in `.vscode/settings.json.default`. Contributors can rename this file to `.vscode/settings.json` to use the project's default settings for a consistent development experience.
 
-## Contact
+## Support
 
-For questions or issues, please open an issue on this repository or contact the [SISKA (Swiss Institute for Speleology and Karst Studies)](https://www.isska.ch).
+- **Questions or Issues**: Open an issue on this repository
+- **Visual KARSYS Support**: Contact us at [info@visualkarsys.com](mailto:info@visualkarsys.com)
+- **SISKA**: [Swiss Institute for Speleology and Karst Studies](https://www.isska.ch)
+- **Visual KARSYS Website**: https://www.visualkarsys.com/
 
-## Debug Viewer
+## License
 
-The project includes a self-contained `debug_viewer.html` file that allows you to visualize and interact with the debug files generated by the tool. This viewer is particularly useful for inspecting intermediate outputs and understanding the simulation results, without needing to reimport them into Visual KARSYS.
-
-### Usage
-
-1. Open the `debug_viewer.html` file in any modern web browser.
-2. Use the file input fields to load the desired debug files:
-   - **Output File**: Load the main output file (e.g., `debug_output.txt`).
-   - **Surface File**: Load the DEM file (e.g., `debug_surface.txt`).
-   - **Watertable/Inception Surface Files**: Load one or more watertable or inception surface files.
-   - **Springs and Sinks Files**: Load `debug_springs.txt` and `debug_sinks.txt`.
-   - (optional) **Project Box File**: Load the project box file (e.g., `debug_project_box.txt`).
-3. Interact with the 3D scene using mouse controls:
-   - **Orbit**: Left-click and drag.
-   - **Zoom**: Scroll wheel.
-   - **Pan**: Right-click and drag.
-4. Use the UI controls to customize the visualization:
-   - Toggle visibility of elements like axes, grid, and project box.
-
-### Example Workflow
-
-1. Run the tool in debug mode to generate intermediate files:
-   ```bash
-   uv run demo.py example/example.zip --debug
-   ```
-2. Open `debug_viewer.html` in your browser.
-3. Load the generated debug files to inspect the simulation results.
-
-The `debug_viewer.html` file is located in the root directory of the project. It is a standalone tool and does not require any additional setup or dependencies.
+See [LICENSE](LICENSE) file for details.
