@@ -1,0 +1,19 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# VisualStudioCode
+.vscode/*
+!.vscode/settings.json.default
+
+# Virtual environments
+.venv
+
+# outputs
+results/
+*.txt
+/*.json

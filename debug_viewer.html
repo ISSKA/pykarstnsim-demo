@@ -1,0 +1,1442 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Karst Segment Viewer</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <style>
+      body {
+        margin: 0;
+        font-family: system-ui, Arial, sans-serif;
+        background: #ffffff;
+        color: #222;
+      }
+      #ui {
+        position: fixed;
+        top: 8px;
+        left: 8px;
+        background: #ffffffee;
+        backdrop-filter: blur(4px);
+        padding: 10px 14px;
+        border-radius: 8px;
+        font-size: 14px;
+        max-width: 340px;
+        border: 1px solid #d3d3d3;
+        box-shadow: 0 2px 6px #0000001f;
+      }
+      #ui h1 {
+        margin: 0 0 6px;
+        font-size: 16px;
+        color: #111;
+      }
+      #log {
+        max-height: 120px;
+        overflow: auto;
+        font-family: monospace;
+        background: #f5f5f5;
+        padding: 6px;
+        margin-top: 6px;
+        border-radius: 4px;
+        border: 1px solid #e0e0e0;
+        color: #333;
+      }
+      label {
+        display: block;
+        margin: 6px 0 2px;
+        font-weight: 600;
+      }
+      input[type="file"] {
+        width: 100%;
+      }
+      .row {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      button {
+        cursor: pointer;
+        background: #f2f2f2;
+        color: #222;
+        border: 1px solid #bcbcbc;
+        border-radius: 4px;
+        padding: 4px 10px;
+      }
+      button:hover {
+        background: #e6e6e6;
+      }
+      select,
+      input[type="checkbox"] {
+        margin-top: 2px;
+      }
+      a {
+        color: #0366d6;
+      }
+      canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="ui">
+      <h1>Karst Segments 3D</h1>
+      <label>Load output file:</label>
+      <input id="fileInput" type="file" accept=".txt,.tsv,.dat" />
+      <label style="margin-top: 10px">Load DEM file (debug_surface.txt):</label>
+      <input id="surfInput" type="file" accept=".txt,.tsurf,.surf" />
+      <label style="margin-top: 10px"
+        >Load Watertable/Inception surface file(s):</label
+      >
+      <input id="wtInput" type="file" multiple accept=".txt,.tsurf,.surf" />
+      <div id="wtControls" style="margin-top: 4px; display: none">
+        <strong style="font-size: 12px">Surfaces:</strong>
+        <div
+          id="wtList"
+          style="
+            max-height: 110px;
+            overflow: auto;
+            border: 1px solid #e0e0e0;
+            padding: 4px;
+            border-radius: 4px;
+            background: #fafafa;
+            font-size: 12px;
+          "
+        ></div>
+        <div class="row" style="margin-top: 4px">
+          <button id="wtFitBtn" disabled>Fit (al)</button>
+          <button id="wtClearAllBtn" disabled>Clear</button>
+        </div>
+      </div>
+      <label style="margin-top: 10px">Load Springs file:</label>
+      <input id="springsInput" type="file" accept=".txt,.tsv,.dat" />
+      <label style="margin-top: 10px">Load Sinks file:</label>
+      <input id="sinksInput" type="file" accept=".txt,.tsv,.dat" />
+      <label style="margin-top: 10px">Load Project Box file:</label>
+      <input id="projectBoxInput" type="file" accept=".txt,.dat" />
+      <div class="row">
+        <button id="clearSpringsBtn" disabled>Clear Springs</button>
+        <label
+          style="display: flex; align-items: center; gap: 4px; font-weight: 500"
+        >
+          <input id="toggleSprings" type="checkbox" checked /> Springs
+        </label>
+      </div>
+      <div class="row">
+        <button id="clearSinksBtn" disabled>Clear Sinks</button>
+        <label
+          style="display: flex; align-items: center; gap: 4px; font-weight: 500"
+        >
+          <input id="toggleSinks" type="checkbox" checked /> Sinks
+        </label>
+      </div>
+      <div class="row">
+        <button id="clearProjectBoxBtn" disabled>Clear Project Box</button>
+        <label
+          style="display: flex; align-items: center; gap: 4px; font-weight: 500"
+        >
+          <input id="toggleProjectBox" type="checkbox" checked /> Project Box
+        </label>
+      </div>
+      <div
+        id="projectBoxLegend"
+        style="
+          margin-top: 6px;
+          padding: 6px;
+          background: #f9f9f9;
+          border-radius: 4px;
+          border: 1px solid #e0e0e0;
+          font-size: 12px;
+          display: none;
+        "
+      >
+        <strong>Project Box Legend:</strong>
+        <div
+          style="display: flex; align-items: center; gap: 4px; margin-top: 2px"
+        >
+          <input
+            id="toggleImpermeable"
+            type="checkbox"
+            checked
+            style="margin: 0"
+          />
+          <div
+            style="
+              width: 12px;
+              height: 12px;
+              background: rgb(25, 25, 100);
+              border-radius: 50%;
+            "
+          ></div>
+          <span>0.0 - Impermeable</span>
+        </div>
+        <div
+          style="display: flex; align-items: center; gap: 4px; margin-top: 2px"
+        >
+          <input id="togglePorous" type="checkbox" checked style="margin: 0" />
+          <div
+            style="
+              width: 12px;
+              height: 12px;
+              background: rgb(100, 125, 200);
+              border-radius: 50%;
+            "
+          ></div>
+          <span>0.1-0.9 - Porous</span>
+        </div>
+        <div
+          style="display: flex; align-items: center; gap: 4px; margin-top: 2px"
+        >
+          <input
+            id="toggleSubmerged"
+            type="checkbox"
+            checked
+            style="margin: 0"
+          />
+          <div
+            style="
+              width: 12px;
+              height: 12px;
+              background: rgb(200, 255, 255);
+              border-radius: 50%;
+            "
+          ></div>
+          <span>1.0 - Fully Submerged</span>
+        </div>
+      </div>
+      <div class="row">
+        <button id="clearSurfaceBtn" disabled>Clear Surface</button>
+        <label
+          style="display: flex; align-items: center; gap: 4px; font-weight: 500"
+        >
+          <input id="toggleSurface" type="checkbox" checked /> Surface
+        </label>
+      </div>
+      <div class="row">
+        <button id="fitBtn" disabled>Fit View</button>
+        <button id="clearBtn" disabled>Clear</button>
+      </div>
+      <label>Color Mode:</label>
+      <select id="colorMode">
+        <option value="branch">branch_id</option>
+        <option value="vadose">vadose_flag</option>
+        <option value="cost">cost (gradient)</option>
+        <option value="single">single color</option>
+      </select>
+      <label><input id="toggleAxes" type="checkbox" checked /> Axes</label>
+      <label><input id="toggleGrid" type="checkbox" checked /> Grid</label>
+      <label
+        >Segment Opacity:
+        <input
+          id="opacity"
+          type="range"
+          min="0.05"
+          max="1"
+          step="0.01"
+          value="1"
+      /></label>
+      <div id="stats"></div>
+      <div id="log"></div>
+    </div>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+        }
+      }
+    </script>
+
+    <script type="module">
+      import * as THREE from "three";
+      import { OrbitControls } from "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js";
+
+      const logEl = document.getElementById("log");
+      const statsEl = document.getElementById("stats");
+      function log(msg) {
+        logEl.textContent += msg + "\\n";
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+      let renderer, scene, camera, controls;
+      initThree();
+
+      const fileInput = document.getElementById("fileInput");
+      const fitBtn = document.getElementById("fitBtn");
+      const clearBtn = document.getElementById("clearBtn");
+      const surfInput = document.getElementById("surfInput");
+      const clearSurfaceBtn = document.getElementById("clearSurfaceBtn");
+      const toggleSurface = document.getElementById("toggleSurface");
+      const wtInput = document.getElementById("wtInput");
+      const wtControls = document.getElementById("wtControls");
+      const wtListEl = document.getElementById("wtList");
+      const wtFitBtn = document.getElementById("wtFitBtn");
+      const wtClearAllBtn = document.getElementById("wtClearAllBtn");
+      const colorModeSel = document.getElementById("colorMode");
+      const opacityRange = document.getElementById("opacity");
+      const toggleAxes = document.getElementById("toggleAxes");
+      const toggleGrid = document.getElementById("toggleGrid");
+      const springsInput = document.getElementById("springsInput");
+      const sinksInput = document.getElementById("sinksInput");
+      const clearSpringsBtn = document.getElementById("clearSpringsBtn");
+      const clearSinksBtn = document.getElementById("clearSinksBtn");
+      const toggleSprings = document.getElementById("toggleSprings");
+      const toggleSinks = document.getElementById("toggleSinks");
+      const projectBoxInput = document.getElementById("projectBoxInput");
+      const clearProjectBoxBtn = document.getElementById("clearProjectBoxBtn");
+      const toggleProjectBox = document.getElementById("toggleProjectBox");
+      const projectBoxLegend = document.getElementById("projectBoxLegend");
+      const toggleImpermeable = document.getElementById("toggleImpermeable");
+      const togglePorous = document.getElementById("togglePorous");
+      const toggleSubmerged = document.getElementById("toggleSubmerged");
+
+      let axesHelper, gridHelper;
+      let segmentsGroup = new THREE.Group();
+      scene.add(segmentsGroup);
+      axesHelper = new THREE.AxesHelper(50);
+      gridHelper = new THREE.GridHelper(500, 50, 0x999999, 0xdddddd);
+      gridHelper.rotation.x = Math.PI / 2; // to align to X-Y plane (Z up from data? Data seems Z is vertical)
+      scene.add(axesHelper, gridHelper);
+
+      let rawSegments = []; // {start:THREE.Vector3,end:THREE.Vector3, meta:{}}
+      let bbox = new THREE.Box3();
+      let surfaceGeom = null; // THREE.BufferGeometry
+      let surfaceWire = null; // THREE.LineSegments
+      let surfaceData = { vertexCount: 0, triCount: 0 };
+      let watertableSurfaces = []; // { name, geom, wire, stats:{vertexCount,triCount}, box }
+
+      // Springs and sinks data
+      let springsGroup = new THREE.Group();
+      let sinksGroup = new THREE.Group();
+      let projectBoxGroup = new THREE.Group();
+      let impermeableGroup = new THREE.Group();
+      let porousGroup = new THREE.Group();
+      let submergedGroup = new THREE.Group();
+      let invalidGroup = new THREE.Group();
+      let rawSprings = []; // {position: THREE.Vector3, meta: {}}
+      let rawSinks = []; // {position: THREE.Vector3, meta: {}}
+      let rawProjectBox = []; // {position: THREE.Vector3, karstifPotential: number}
+      let projectBoxParams = null; // {nu, nv, nw, basis: Vector3, u: Vector3, v: Vector3, w: Vector3}
+
+      // Add porosity groups to main project box group
+      projectBoxGroup.add(impermeableGroup, porousGroup, submergedGroup);
+
+      scene.add(springsGroup, sinksGroup, projectBoxGroup);
+
+      fileInput.addEventListener("change", handleFile);
+      fitBtn.addEventListener("click", fitView);
+      clearBtn.addEventListener("click", clearAll);
+      colorModeSel.addEventListener("change", () => recolor());
+      opacityRange.addEventListener("input", () =>
+        setOpacity(parseFloat(opacityRange.value))
+      );
+      toggleAxes.addEventListener(
+        "change",
+        () => (axesHelper.visible = toggleAxes.checked)
+      );
+      toggleGrid.addEventListener(
+        "change",
+        () => (gridHelper.visible = toggleGrid.checked)
+      );
+      surfInput.addEventListener("change", handleSurfaceFile);
+      clearSurfaceBtn.addEventListener("click", clearSurface);
+      toggleSurface.addEventListener("change", () => {
+        if (surfaceWire) surfaceWire.visible = toggleSurface.checked;
+      });
+      wtInput.addEventListener("change", handleWatertableFiles);
+      wtFitBtn.addEventListener("click", () => {
+        fitView();
+        log("Fitted including watertables.");
+      });
+      wtClearAllBtn.addEventListener("click", clearAllWatertables);
+      springsInput.addEventListener("change", handleSpringsFile);
+      sinksInput.addEventListener("change", handleSinksFile);
+      projectBoxInput.addEventListener("change", handleProjectBoxFile);
+      clearSpringsBtn.addEventListener("click", clearSprings);
+      clearSinksBtn.addEventListener("click", clearSinks);
+      clearProjectBoxBtn.addEventListener("click", clearProjectBox);
+      toggleSprings.addEventListener("change", () => {
+        springsGroup.visible = toggleSprings.checked;
+      });
+      toggleSinks.addEventListener("change", () => {
+        sinksGroup.visible = toggleSinks.checked;
+      });
+      toggleProjectBox.addEventListener("change", () => {
+        projectBoxGroup.visible = toggleProjectBox.checked;
+      });
+      toggleImpermeable.addEventListener("change", () =>
+        updateProjectBoxVisibility()
+      );
+      togglePorous.addEventListener("change", () =>
+        updateProjectBoxVisibility()
+      );
+      toggleSubmerged.addEventListener("change", () =>
+        updateProjectBoxVisibility()
+      );
+
+      function initThree() {
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setPixelRatio(devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xffffff);
+
+        camera = new THREE.PerspectiveCamera(
+          55,
+          window.innerWidth / window.innerHeight,
+          0.1,
+          10000
+        );
+        camera.position.set(0, -500, 400);
+        controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+
+        const amb = new THREE.AmbientLight(0xffffff, 0.6);
+        const dir = new THREE.DirectionalLight(0xffffff, 0.6);
+        dir.position.set(300, 400, 500);
+        scene.add(amb, dir);
+
+        window.addEventListener("resize", onResize);
+        animate();
+      }
+
+      function onResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      }
+
+      function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+      }
+
+      async function handleFile(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        log("Reading: " + file.name);
+        const text = await file.text();
+        parseFile(text);
+        buildSegments();
+        fitBtn.disabled = false;
+        clearBtn.disabled = false;
+        recolor();
+        fitView();
+      }
+
+      /**
+       * @param {string} text
+       */
+      function parseFile(text) {
+        rawSegments = [];
+        bbox.makeEmpty();
+        const lines = text.split(/\r?\n|\r|\n/g).filter((l) => l.trim().length);
+        console.log("Total lines:", lines.length);
+        if (!lines.length) {
+          log("Empty file.");
+          return;
+        }
+        // Assume first line is header if it contains non-numeric in first token
+        let idx = 0;
+        // Header detection: split on any whitespace (tabs or spaces)
+        if (isNaN(parseFloat(lines[0].split(/\s+/)[0]))) {
+          idx = 1; // skip header
+        }
+        let lineCount = 0;
+        const rowObjs = [];
+        for (; idx < lines.length; idx++) {
+          // Split on whitespace (tabs/spaces). Previous pattern used escaped backslashes and failed.
+          const cols = lines[idx].trim().split(/\s+/).filter(Boolean);
+          if (cols.length < 4) continue;
+          const rec = {
+            Index: parseInt(cols[0]),
+            X: parseFloat(cols[1]),
+            Y: parseFloat(cols[2]),
+            Z: parseFloat(cols[3]),
+            cost: parseFloat(cols[4] ?? "0"),
+            equivalent_radius: parseFloat(cols[5] ?? "0"),
+            branch_id: parseFloat(cols[6] ?? "0"),
+            vadose_flag: parseFloat(cols[7] ?? "0"),
+          };
+          if (
+            Number.isFinite(rec.X) &&
+            Number.isFinite(rec.Y) &&
+            Number.isFinite(rec.Z)
+          ) {
+            rowObjs.push(rec);
+            lineCount++;
+          }
+        }
+        // Build segments by pairing consecutive rows with same Index
+        for (let i = 0; i < rowObjs.length - 1; i++) {
+          const a = rowObjs[i];
+          const b = rowObjs[i + 1];
+          if (a.Index === b.Index) {
+            const start = new THREE.Vector3(a.X, a.Y, a.Z);
+            const end = new THREE.Vector3(b.X, b.Y, b.Z);
+            bbox.expandByPoint(start);
+            bbox.expandByPoint(end);
+            rawSegments.push({
+              start,
+              end,
+              meta: {
+                index: a.Index,
+                cost: a.cost,
+                branch_id: a.branch_id,
+                vadose_flag: a.vadose_flag,
+              },
+            });
+            i++; // skip next since consumed
+          } else {
+            // If not paired, attempt to still form a degenerate segment (optional)
+            // log('Unpaired index at line ' + i + ': ' + a.Index);
+          }
+        }
+        log(
+          `Parsed ${rawSegments.length} segments from ${lineCount} point rows.`
+        );
+        updateStatsDisplay();
+      }
+
+      let segmentMesh; // Instanced mesh
+      function buildSegments() {
+        if (segmentMesh) {
+          segmentsGroup.remove(segmentMesh);
+          segmentMesh.geometry.dispose();
+          segmentMesh.material.dispose();
+        }
+        const n = rawSegments.length;
+        if (!n) return;
+        // Cylinder for each segment
+        const baseGeom = new THREE.CylinderGeometry(0.5, 0.5, 1, 6, 1, true);
+        // IMPORTANT: base material color must be white; otherwise instance colors are multiplied by it
+        // and a dark base (0x222222) makes every segment look almost black.
+        const material = new THREE.MeshPhongMaterial({
+          color: 0xffffff,
+          flatShading: true,
+        });
+        segmentMesh = new THREE.InstancedMesh(baseGeom, material, n);
+        segmentMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        // Initialize instance colors
+        segmentMesh.instanceColor = new THREE.InstancedBufferAttribute(
+          new Float32Array(n * 3),
+          3
+        );
+        segmentMesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
+        // Per-instance color attribute (via setColorAt)
+        const tmpMat = new THREE.Matrix4();
+        const up = new THREE.Vector3(0, 1, 0);
+        const quat = new THREE.Quaternion();
+        const scale = new THREE.Vector3(1, 1, 1);
+        const dir = new THREE.Vector3();
+        const pos = new THREE.Vector3();
+
+        for (let i = 0; i < n; i++) {
+          const s = rawSegments[i].start;
+          const e = rawSegments[i].end;
+          dir.copy(e).sub(s);
+          const length = dir.length();
+          if (length === 0) {
+            // Degenerate segment; place a tiny marker
+            const mid = pos.copy(s);
+            quat.identity();
+            scale.set(1e-3, 1e-3, 1e-3);
+            tmpMat.compose(mid, quat, scale);
+            segmentMesh.setMatrixAt(i, tmpMat);
+          } else {
+            // Orient cylinder whose default axis is Y
+            const mid = pos.copy(s).addScaledVector(dir, 0.5);
+            // Compute rotation
+            const axis = new THREE.Vector3(0, 1, 0);
+            quat.setFromUnitVectors(axis, dir.clone().normalize());
+            scale.set(1, length, 1);
+            tmpMat.compose(mid, quat, scale);
+            segmentMesh.setMatrixAt(i, tmpMat);
+          }
+          // Color placeholder; will recolor
+          segmentMesh.setColorAt(i, new THREE.Color(0x2196f3)); // default blue color
+        }
+        segmentMesh.instanceColor.needsUpdate = true;
+        segmentsGroup.add(segmentMesh);
+      }
+
+      function recolor() {
+        if (!segmentMesh) return;
+        const mode = colorModeSel.value;
+        const color = new THREE.Color();
+        let minCost = Infinity,
+          maxCost = -Infinity;
+        if (mode === "cost") {
+          for (const s of rawSegments) {
+            if (!isNaN(s.meta.cost)) {
+              minCost = Math.min(minCost, s.meta.cost);
+              maxCost = Math.max(maxCost, s.meta.cost);
+            }
+          }
+          if (minCost === Infinity) {
+            minCost = 0;
+            maxCost = 1;
+          }
+        }
+        for (let i = 0; i < rawSegments.length; i++) {
+          const meta = rawSegments[i].meta;
+          switch (mode) {
+            case "branch":
+              color.copy(hashColor(meta.branch_id));
+              break;
+            case "vadose":
+              color.set(meta.vadose_flag > 0.5 ? 0xffc107 : 0x2196f3);
+              break;
+            case "cost":
+              const t = (meta.cost - minCost) / (maxCost - minCost + 1e-12);
+              // blue -> cyan -> lime -> yellow -> red
+              color.setHSL((1 - t) * 0.66, 1.0, 0.5);
+              break;
+            default:
+              color.set(0x2196f3); // blue color on white background
+          }
+          segmentMesh.setColorAt(i, color);
+        }
+        segmentMesh.instanceColor.needsUpdate = true;
+        log("Recolored (" + mode + ").");
+      }
+
+      function hashColor(id) {
+        // Simple deterministic hash -> color
+        const h = fract(Math.sin(id * 9283.123) * 43758.5453);
+        const s = 0.55 + 0.35 * fract(Math.sin(id * 12.989) * 78.233);
+        const l = 0.45 + 0.15 * fract(Math.sin(id * 53.1) * 437.585);
+        const c = new THREE.Color().setHSL(h, s, l);
+        return c;
+      }
+      function fract(x) {
+        return x - Math.floor(x);
+      }
+
+      function fitView() {
+        const size = bbox.getSize(new THREE.Vector3());
+        const center = bbox.getCenter(new THREE.Vector3());
+        // Move camera relative to largest dimension
+        const maxDim = Math.max(size.x, size.y, size.z);
+        camera.position.set(
+          center.x + maxDim * 0.9,
+          center.y - maxDim * 1.3,
+          center.z + maxDim * 0.6
+        );
+        camera.near = maxDim * 0.001;
+        camera.far = maxDim * 10 + 10000;
+        camera.updateProjectionMatrix();
+        controls.target.copy(center);
+        controls.update();
+        log("View fitted.");
+      }
+
+      function setOpacity(o) {
+        if (segmentMesh) {
+          segmentMesh.material.transparent = o < 0.999;
+          segmentMesh.material.opacity = o;
+          segmentMesh.material.needsUpdate = true;
+        }
+      }
+
+      function clearAll() {
+        fileInput.value = "";
+        rawSegments = [];
+        bbox.makeEmpty();
+        if (segmentMesh) {
+          segmentsGroup.remove(segmentMesh);
+          segmentMesh.geometry.dispose();
+          segmentMesh.material.dispose();
+          segmentMesh = null;
+        }
+        // Clear springs and sinks
+        clearSprings();
+        clearSinks();
+        clearProjectBox();
+        statsEl.textContent = "";
+        fitBtn.disabled = true;
+        clearBtn.disabled = true;
+        log("Cleared.");
+      }
+
+      // --- Shared surface parsing ---
+      function parseSurfaceText(text) {
+        const lines = text.split(/\r?\n/);
+        const vertexMap = new Map();
+        const triangles = [];
+        let zeroBasedCandidate = false;
+        for (const lineRaw of lines) {
+          const line = lineRaw.trim();
+          if (!line) continue;
+          if (line.startsWith("VRTX")) {
+            const cols = line.split(/\s+/);
+            if (cols.length >= 5) {
+              const vid = parseInt(cols[1]);
+              const x = parseFloat(cols[2]);
+              const y = parseFloat(cols[3]);
+              const z = parseFloat(cols[4]);
+              if (
+                Number.isFinite(vid) &&
+                Number.isFinite(x) &&
+                Number.isFinite(y) &&
+                Number.isFinite(z)
+              )
+                vertexMap.set(vid, { x, y, z });
+            }
+          } else if (line.startsWith("TRGL")) {
+            const cols = line.split(/\s+/);
+            if (cols.length >= 5) {
+              const a = parseInt(cols[2]);
+              const b = parseInt(cols[3]);
+              const c = parseInt(cols[4]);
+              if (a === 0) zeroBasedCandidate = true;
+              if (
+                Number.isFinite(a) &&
+                Number.isFinite(b) &&
+                Number.isFinite(c)
+              )
+                triangles.push([a, b, c]);
+            }
+          }
+        }
+        if (zeroBasedCandidate && !vertexMap.has(0) && vertexMap.has(1)) {
+          for (let t of triangles) {
+            t[0]++;
+            t[1]++;
+            t[2]++;
+          }
+        }
+        const sortedIds = Array.from(vertexMap.keys()).sort((a, b) => a - b);
+        const idToSequential = new Map();
+        sortedIds.forEach((id, i) => idToSequential.set(id, i));
+        const positions = new Float32Array(sortedIds.length * 3);
+        const tmpV = new THREE.Vector3();
+        const localBox = new THREE.Box3();
+        for (let i = 0; i < sortedIds.length; i++) {
+          const v = vertexMap.get(sortedIds[i]);
+          positions[3 * i] = v.x;
+          positions[3 * i + 1] = v.y;
+          positions[3 * i + 2] = v.z;
+          tmpV.set(v.x, v.y, v.z);
+          localBox.expandByPoint(tmpV);
+        }
+        const indices = [];
+        for (const tri of triangles) {
+          if (
+            idToSequential.has(tri[0]) &&
+            idToSequential.has(tri[1]) &&
+            idToSequential.has(tri[2])
+          )
+            indices.push(
+              idToSequential.get(tri[0]),
+              idToSequential.get(tri[1]),
+              idToSequential.get(tri[2])
+            );
+        }
+        const geom = new THREE.BufferGeometry();
+        geom.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+        geom.setIndex(indices);
+        geom.computeBoundingSphere();
+        return {
+          geom,
+          vertexCount: sortedIds.length,
+          triCount: indices.length / 3,
+          box: localBox,
+        };
+      }
+
+      async function handleSurfaceFile(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        log("Reading surface: " + file.name);
+        const text = await file.text();
+        const parsed = parseSurfaceText(text);
+        if (!parsed.vertexCount) {
+          log("Surface empty.");
+          return;
+        }
+        surfaceGeom?.dispose();
+        surfaceGeom = parsed.geom;
+        surfaceData.vertexCount = parsed.vertexCount;
+        surfaceData.triCount = parsed.triCount;
+        bbox.union(parsed.box);
+        buildSurface();
+        clearSurfaceBtn.disabled = false;
+        toggleSurface.disabled = false;
+        fitView();
+        log(
+          `Parsed surface: ${surfaceData.vertexCount} vertices, ${surfaceData.triCount} triangles.`
+        );
+      }
+
+      function buildSurface() {
+        if (surfaceWire) {
+          scene.remove(surfaceWire);
+          surfaceWire.geometry.dispose();
+          surfaceWire.material.dispose();
+          surfaceWire = null;
+        }
+        if (!surfaceGeom) return;
+        const wireGeom = new THREE.WireframeGeometry(surfaceGeom);
+        surfaceWire = new THREE.LineSegments(
+          wireGeom,
+          new THREE.LineBasicMaterial({
+            color: 0x777777,
+            transparent: true,
+            opacity: 0.7,
+          })
+        );
+        surfaceWire.renderOrder = 1;
+        scene.add(surfaceWire);
+        surfaceWire.visible = toggleSurface.checked;
+        updateStatsDisplay();
+      }
+
+      // --- Watertable surfaces (0..n) ---
+      async function handleWatertableFiles(e) {
+        const files = Array.from(e.target.files || []);
+        if (!files.length) return;
+        for (const file of files) {
+          const text = await file.text();
+          const parsed = parseSurfaceText(text);
+          if (!parsed.vertexCount) {
+            log(`Watertable ${file.name} empty.`);
+            continue;
+          }
+          bbox.union(parsed.box);
+          const wireGeom = new THREE.WireframeGeometry(parsed.geom);
+          const color = pickWatertableColor(watertableSurfaces.length);
+          const wire = new THREE.LineSegments(
+            wireGeom,
+            new THREE.LineBasicMaterial({
+              color,
+              transparent: true,
+              opacity: 0.6,
+            })
+          );
+          wire.renderOrder = 2;
+          scene.add(wire);
+          watertableSurfaces.push({
+            name: file.name,
+            geom: parsed.geom,
+            wire,
+            stats: {
+              vertexCount: parsed.vertexCount,
+              triCount: parsed.triCount,
+            },
+            box: parsed.box,
+          });
+          addWatertableListItem(watertableSurfaces.length - 1);
+          log(`Loaded watertable: ${file.name} (${parsed.triCount} tris).`);
+        }
+        wtControls.style.display = watertableSurfaces.length ? "block" : "none";
+        wtFitBtn.disabled = watertableSurfaces.length === 0;
+        wtClearAllBtn.disabled = watertableSurfaces.length === 0;
+        updateStatsDisplay();
+        fitView();
+        wtInput.value = "";
+      }
+
+      function pickWatertableColor(i) {
+        const palette = [
+          0x1565c0, 0x2e7d32, 0x6a1b9a, 0xff8f00, 0xd81b60, 0x00838f, 0x5d4037,
+        ];
+        return palette[i % palette.length];
+      }
+
+      function addWatertableListItem(index) {
+        const wt = watertableSurfaces[index];
+        const row = document.createElement("div");
+        row.style.display = "flex";
+        row.style.alignItems = "center";
+        row.style.gap = "4px";
+        row.style.margin = "2px 0";
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.checked = true;
+        cb.dataset.index = index;
+        cb.addEventListener("change", (ev) => {
+          const i = parseInt(ev.target.dataset.index);
+          watertableSurfaces[i].wire.visible = ev.target.checked;
+        });
+        const label = document.createElement("span");
+        label.textContent = wt.name;
+        label.style.flex = "1";
+        label.title = `Verts:${wt.stats.vertexCount} Tris:${wt.stats.triCount}`;
+        const rm = document.createElement("button");
+        rm.textContent = "x";
+        rm.style.padding = "0 6px";
+        rm.style.fontSize = "11px";
+        rm.addEventListener("click", () => removeWatertable(index));
+        row.appendChild(cb);
+        row.appendChild(label);
+        row.appendChild(rm);
+        wtListEl.appendChild(row);
+      }
+
+      function removeWatertable(index) {
+        const wt = watertableSurfaces[index];
+        if (!wt) return;
+        scene.remove(wt.wire);
+        wt.wire.geometry.dispose();
+        wt.wire.material.dispose();
+        wt.geom.dispose();
+        watertableSurfaces[index] = null;
+        wtListEl.innerHTML = "";
+        watertableSurfaces = watertableSurfaces.filter((s) => s);
+        watertableSurfaces.forEach((_, i) => addWatertableListItem(i));
+        if (!watertableSurfaces.length) {
+          wtControls.style.display = "none";
+          wtFitBtn.disabled = true;
+          wtClearAllBtn.disabled = true;
+        }
+        updateStatsDisplay();
+        log("Removed watertable surface.");
+      }
+
+      function clearAllWatertables() {
+        for (const wt of watertableSurfaces) {
+          scene.remove(wt.wire);
+          wt.wire.geometry.dispose();
+          wt.wire.material.dispose();
+          wt.geom.dispose();
+        }
+        watertableSurfaces = [];
+        wtListEl.innerHTML = "";
+        wtControls.style.display = "none";
+        wtFitBtn.disabled = true;
+        wtClearAllBtn.disabled = true;
+        updateStatsDisplay();
+        log("Cleared all watertable surfaces.");
+      }
+
+      function updateStatsDisplay() {
+        let txt = `Segments: ${rawSegments.length}`;
+        if (surfaceGeom) txt += `  Surface tris: ${surfaceData.triCount}`;
+        if (watertableSurfaces.length)
+          txt += `  Watertables: ${watertableSurfaces.length}`;
+        if (rawSprings.length) txt += `  Springs: ${rawSprings.length}`;
+        if (rawSinks.length) txt += `  Sinks: ${rawSinks.length}`;
+        if (rawProjectBox.length)
+          txt += `  Project Box: ${rawProjectBox.length}`;
+        statsEl.textContent = txt;
+      }
+
+      function clearSurface() {
+        surfInput.value = "";
+        if (surfaceWire) {
+          scene.remove(surfaceWire);
+          surfaceWire.geometry.dispose();
+          surfaceWire.material.dispose();
+          surfaceWire = null;
+        }
+        surfaceGeom?.dispose();
+        surfaceGeom = null;
+        surfaceData.vertexCount = 0;
+        surfaceData.triCount = 0;
+        clearSurfaceBtn.disabled = true;
+        log("Surface cleared.");
+        updateStatsDisplay();
+      }
+
+      // Optional: drag & drop support
+      window.addEventListener("dragover", (e) => {
+        e.preventDefault();
+      });
+      window.addEventListener("drop", (e) => {
+        e.preventDefault();
+        if (e.dataTransfer.files.length) {
+          fileInput.files = e.dataTransfer.files;
+          fileInput.dispatchEvent(new Event("change"));
+        }
+      });
+
+      // --- Springs and Sinks handling ---
+      async function handleSpringsFile(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        log("Reading springs: " + file.name);
+        const text = await file.text();
+        parseSpringsFile(text);
+        buildSprings();
+        clearSpringsBtn.disabled = false;
+        toggleSprings.disabled = false;
+        fitView();
+        log(`Loaded ${rawSprings.length} springs.`);
+        updateStatsDisplay();
+      }
+
+      async function handleSinksFile(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        log("Reading sinks: " + file.name);
+        const text = await file.text();
+        parseSinksFile(text);
+        buildSinks();
+        clearSinksBtn.disabled = false;
+        toggleSinks.disabled = false;
+        fitView();
+        log(`Loaded ${rawSinks.length} sinks.`);
+        updateStatsDisplay();
+      }
+
+      function parseSpringsFile(text) {
+        rawSprings = [];
+        const lines = text.split(/\r?\n|\r|\n/g).filter((l) => l.trim().length);
+        if (!lines.length) {
+          log("Empty springs file.");
+          return;
+        }
+
+        // Skip header if present (first line contains non-numeric first token)
+        let idx = 0;
+        if (isNaN(parseFloat(lines[0].split(/\s+/)[0]))) {
+          idx = 1; // skip header
+        }
+
+        for (; idx < lines.length; idx++) {
+          const cols = lines[idx].trim().split(/\s+/).filter(Boolean);
+          if (cols.length < 4) continue;
+
+          const x = parseFloat(cols[1]);
+          const y = parseFloat(cols[2]);
+          const z = parseFloat(cols[3]);
+
+          if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z)) {
+            const position = new THREE.Vector3(x, y, z);
+            bbox.expandByPoint(position);
+            rawSprings.push({
+              position,
+              meta: {
+                index: parseInt(cols[0]),
+                surfindex: parseFloat(cols[4] ?? "0"),
+                radius: parseFloat(cols[5] ?? "0"),
+              },
+            });
+          }
+        }
+      }
+
+      function parseSinksFile(text) {
+        rawSinks = [];
+        const lines = text.split(/\r?\n|\r|\n/g).filter((l) => l.trim().length);
+        if (!lines.length) {
+          log("Empty sinks file.");
+          return;
+        }
+
+        // Skip header if present (first line contains non-numeric first token)
+        let idx = 0;
+        if (isNaN(parseFloat(lines[0].split(/\s+/)[0]))) {
+          idx = 1; // skip header
+        }
+
+        for (; idx < lines.length; idx++) {
+          const cols = lines[idx].trim().split(/\s+/).filter(Boolean);
+          if (cols.length < 4) continue;
+
+          const x = parseFloat(cols[1]);
+          const y = parseFloat(cols[2]);
+          const z = parseFloat(cols[3]);
+
+          if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z)) {
+            const position = new THREE.Vector3(x, y, z);
+            bbox.expandByPoint(position);
+            rawSinks.push({
+              position,
+              meta: {
+                index: parseInt(cols[0]),
+                order: parseFloat(cols[4] ?? "0"),
+                radius: parseFloat(cols[5] ?? "0"),
+              },
+            });
+          }
+        }
+      }
+
+      function parseProjectBoxFile(text) {
+        rawProjectBox = [];
+        projectBoxParams = null;
+
+        const lines = text.split(/\r?\n|\r|\n/g).filter((l) => l.trim().length);
+        if (!lines.length) {
+          log("Empty project box file.");
+          return;
+        }
+
+        // Parse parameters section
+        let idx = 0;
+        const params = {};
+
+        // Skip "Parameters" header if present
+        if (lines[idx].trim() === "Parameters") {
+          idx++;
+        }
+
+        // Parse parameter lines
+        while (idx < lines.length && !lines[idx].includes("Index")) {
+          const line = lines[idx].trim();
+          if (line.length === 0) {
+            idx++;
+            continue;
+          }
+
+          const parts = line.split(/\s+/);
+          if (parts.length >= 2) {
+            const key = parts[0];
+            if (key === "basis" && parts.length >= 4) {
+              params.basis = new THREE.Vector3(
+                parseFloat(parts[1]),
+                parseFloat(parts[2]),
+                parseFloat(parts[3])
+              );
+            } else if (key === "u" && parts.length >= 4) {
+              params.u = new THREE.Vector3(
+                parseFloat(parts[1]),
+                parseFloat(parts[2]),
+                parseFloat(parts[3])
+              );
+            } else if (key === "v" && parts.length >= 4) {
+              params.v = new THREE.Vector3(
+                parseFloat(parts[1]),
+                parseFloat(parts[2]),
+                parseFloat(parts[3])
+              );
+            } else if (key === "w" && parts.length >= 4) {
+              params.w = new THREE.Vector3(
+                parseFloat(parts[1]),
+                parseFloat(parts[2]),
+                parseFloat(parts[3])
+              );
+            } else if (key === "nu") {
+              params.nu = parseInt(parts[1]);
+            } else if (key === "nv") {
+              params.nv = parseInt(parts[1]);
+            } else if (key === "nw") {
+              params.nw = parseInt(parts[1]);
+            }
+          }
+          idx++;
+        }
+
+        projectBoxParams = params;
+
+        // Skip header line (Index density karstif_potential)
+        if (idx < lines.length && lines[idx].includes("Index")) {
+          idx++;
+        }
+
+        // Parse data lines
+        let iu = 0,
+          iv = 0,
+          iw = 0;
+        for (; idx < lines.length; idx++) {
+          const cols = lines[idx].trim().split(/\s+/).filter(Boolean);
+          if (cols.length < 3) continue;
+
+          const index = parseInt(cols[0]);
+          const density = parseFloat(cols[1]);
+          const karstifPotential = parseFloat(cols[2]);
+
+          if (Number.isFinite(index)) {
+            //  index = iu + cells_u * iv + cells_u * cells_v * iw)
+
+            // Calculate position using basis vectors
+            const position = new THREE.Vector3()
+              .copy(params.basis)
+              .addScaledVector(params.u, (iu + 0.5) / params.nu)
+              .addScaledVector(params.v, (iv + 0.5) / params.nv)
+              .addScaledVector(params.w, (iw + 0.5) / params.nw);
+
+            bbox.expandByPoint(position);
+            rawProjectBox.push({
+              position,
+              karstifPotential,
+              index,
+              iu,
+              iv,
+              iw,
+            });
+          }
+          // Increment grid indices
+          iu++;
+          if (iu >= params.nu) {
+            iu = 0;
+            iv++;
+            if (iv >= params.nv) {
+              iv = 0;
+              iw++;
+            }
+          }
+        }
+
+        log(
+          `Parsed ${rawProjectBox.length} project box cells from ${params.nu}x${params.nv}x${params.nw} grid.`
+        );
+      }
+
+      function buildSprings() {
+        // Clear existing springs
+        springsGroup.clear();
+
+        if (!rawSprings.length) return;
+
+        // Calculate sphere size based on bounding box
+        const size = bbox.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const sphereRadius = Math.max(maxDim * 0.008, 1.0); // 0.8% of scene size, minimum 1.0
+
+        const geometry = new THREE.SphereGeometry(sphereRadius, 16, 12);
+        const material = new THREE.MeshPhongMaterial({ color: 0x0066ff }); // Blue for springs
+
+        rawSprings.forEach((spring) => {
+          const mesh = new THREE.Mesh(geometry, material);
+          mesh.position.copy(spring.position);
+          springsGroup.add(mesh);
+        });
+      }
+
+      function buildSinks() {
+        // Clear existing sinks
+        sinksGroup.clear();
+
+        if (!rawSinks.length) return;
+
+        // Calculate sphere size based on bounding box
+        const size = bbox.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const sphereRadius = Math.max(maxDim * 0.008, 1.0); // 0.8% of scene size, minimum 1.0
+
+        const geometry = new THREE.SphereGeometry(sphereRadius, 16, 12);
+        const material = new THREE.MeshPhongMaterial({ color: 0xff0000 }); // Red for sinks
+
+        rawSinks.forEach((sink) => {
+          const mesh = new THREE.Mesh(geometry, material);
+          mesh.position.copy(sink.position);
+          sinksGroup.add(mesh);
+        });
+      }
+
+      function buildProjectBox() {
+        // Clear existing project box groups
+        impermeableGroup.clear();
+        porousGroup.clear();
+        submergedGroup.clear();
+        invalidGroup.clear();
+
+        if (!rawProjectBox.length) return;
+
+        // Calculate sphere size based on bounding box
+        const size = bbox.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const sphereRadius = Math.max(maxDim * 0.0015, 0.25); // Half size spheres for grid cells
+
+        // Separate cells by porosity level
+        const impermeableCells = rawProjectBox.filter(
+          (cell) => cell.karstifPotential === 0.0
+        );
+        const porousCells = rawProjectBox.filter(
+          (cell) => cell.karstifPotential > 0.0 && cell.karstifPotential < 1.0
+        );
+        const submergedCells = rawProjectBox.filter(
+          (cell) => cell.karstifPotential >= 1.0
+        );
+        const invalidCells = rawProjectBox.filter(
+          (cell) => isNaN(cell.karstifPotential) || cell.karstifPotential < 0.0
+        );
+
+        // Create geometry and materials
+        const geometry = new THREE.SphereGeometry(sphereRadius, 8, 6);
+
+        // Build impermeable spheres (0.0)
+        if (impermeableCells.length > 0) {
+          const material = new THREE.MeshPhongMaterial({ color: 0xffffff });
+          const instancedMesh = new THREE.InstancedMesh(
+            geometry,
+            material,
+            impermeableCells.length
+          );
+          instancedMesh.instanceColor = new THREE.InstancedBufferAttribute(
+            new Float32Array(impermeableCells.length * 3),
+            3
+          );
+          instancedMesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
+
+          const matrix = new THREE.Matrix4();
+          const color = new THREE.Color(0.1, 0.1, 0.4); // Dark blue
+
+          impermeableCells.forEach((cell, index) => {
+            matrix.setPosition(cell.position);
+            instancedMesh.setMatrixAt(index, matrix);
+            instancedMesh.setColorAt(index, color);
+          });
+
+          instancedMesh.instanceMatrix.needsUpdate = true;
+          instancedMesh.instanceColor.needsUpdate = true;
+          impermeableGroup.add(instancedMesh);
+        }
+
+        // Build porous spheres (0.1-0.9)
+        if (porousCells.length > 0) {
+          const material = new THREE.MeshPhongMaterial({ color: 0xffffff });
+          const instancedMesh = new THREE.InstancedMesh(
+            geometry,
+            material,
+            porousCells.length
+          );
+          instancedMesh.instanceColor = new THREE.InstancedBufferAttribute(
+            new Float32Array(porousCells.length * 3),
+            3
+          );
+          instancedMesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
+
+          const matrix = new THREE.Matrix4();
+          const color = new THREE.Color();
+
+          porousCells.forEach((cell, index) => {
+            matrix.setPosition(cell.position);
+            instancedMesh.setMatrixAt(index, matrix);
+
+            // Interpolate color based on porosity
+            const t = cell.karstifPotential;
+            color.setRGB(0.1 + t * 0.3, 0.1 + t * 0.4, 0.4 + t * 0.4);
+            instancedMesh.setColorAt(index, color);
+          });
+
+          instancedMesh.instanceMatrix.needsUpdate = true;
+          instancedMesh.instanceColor.needsUpdate = true;
+          porousGroup.add(instancedMesh);
+        }
+
+        // Build submerged spheres (1.0)
+        if (submergedCells.length > 0) {
+          const material = new THREE.MeshPhongMaterial({ color: 0xffffff });
+          const instancedMesh = new THREE.InstancedMesh(
+            geometry,
+            material,
+            submergedCells.length
+          );
+          instancedMesh.instanceColor = new THREE.InstancedBufferAttribute(
+            new Float32Array(submergedCells.length * 3),
+            3
+          );
+          instancedMesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
+
+          const matrix = new THREE.Matrix4();
+          const color = new THREE.Color(0.8, 1.0, 1.0); // Bright cyan
+
+          submergedCells.forEach((cell, index) => {
+            matrix.setPosition(cell.position);
+            instancedMesh.setMatrixAt(index, matrix);
+            instancedMesh.setColorAt(index, color);
+          });
+
+          instancedMesh.instanceMatrix.needsUpdate = true;
+          instancedMesh.instanceColor.needsUpdate = true;
+          submergedGroup.add(instancedMesh);
+        }
+
+        if (invalidCells.length > 0) {
+          const material = new THREE.MeshPhongMaterial({ color: 0xff0000 });
+          const instancedMesh = new THREE.InstancedMesh(
+            geometry,
+            material,
+            invalidCells.length
+          );
+          const matrix = new THREE.Matrix4();
+          invalidCells.forEach((cell, index) => {
+            matrix.setPosition(cell.position);
+            instancedMesh.setMatrixAt(index, matrix);
+          });
+          instancedMesh.instanceMatrix.needsUpdate = true;
+          invalidGroup.add(instancedMesh);
+        }
+
+        // Re-add groups to main project box group
+        projectBoxGroup.add(
+          impermeableGroup,
+          porousGroup,
+          submergedGroup /*, invalidGroup*/
+        );
+
+        log(
+          `Built project box: ${impermeableCells.length} impermeable, ${porousCells.length} porous, ${submergedCells.length} submerged spheres.`
+        );
+        fitView();
+      }
+
+      function updateProjectBoxVisibility() {
+        if (impermeableGroup) {
+          impermeableGroup.visible = toggleImpermeable.checked;
+        }
+        if (porousGroup) {
+          porousGroup.visible = togglePorous.checked;
+        }
+        if (submergedGroup) {
+          submergedGroup.visible = toggleSubmerged.checked;
+        }
+      }
+
+      function clearSprings() {
+        springsInput.value = "";
+        rawSprings = [];
+        springsGroup.clear();
+        clearSpringsBtn.disabled = true;
+        toggleSprings.disabled = true;
+        log("Springs cleared.");
+        updateStatsDisplay();
+      }
+
+      function clearSinks() {
+        sinksInput.value = "";
+        rawSinks = [];
+        sinksGroup.clear();
+        clearSinksBtn.disabled = true;
+        toggleSinks.disabled = true;
+        log("Sinks cleared.");
+        updateStatsDisplay();
+      }
+
+      function handleProjectBoxFile(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        log(`Loading project box file: ${file.name}`);
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            parseProjectBoxFile(e.target.result);
+            buildProjectBox();
+            clearProjectBoxBtn.disabled = false;
+            toggleProjectBox.disabled = false;
+            projectBoxLegend.style.display = "block";
+            log(`Project box loaded successfully.`);
+            updateStatsDisplay();
+          } catch (err) {
+            log(`Error parsing project box file: ${err.message}`);
+          }
+        };
+        reader.readAsText(file);
+      }
+
+      function clearProjectBox() {
+        projectBoxInput.value = "";
+        rawProjectBox = [];
+        projectBoxParams = null;
+        impermeableGroup.clear();
+        porousGroup.clear();
+        submergedGroup.clear();
+        projectBoxGroup.clear();
+        clearProjectBoxBtn.disabled = true;
+        toggleProjectBox.disabled = true;
+        projectBoxLegend.style.display = "none";
+        log("Project box cleared.");
+        updateStatsDisplay();
+      }
+
+      // Keyboard shortcuts
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "f") fitView();
+        if (e.key === "r") recolor();
+      });
+    </script>
+  </body>
+</html>
