@@ -6,12 +6,12 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "pydantic>=2.11.9",
-    "pykarstnsim@git+ssh://git@github.com/ISSKA/pykarstnsim.git",
+    "pykarstnsim@git+https://github.com/ISSKA/pykarstnsim.git",
     "shapely>=2.1.2",
 ]
 
 [tool.uv.sources]
-pykarstnsim = { git = "ssh://git@github.com/ISSKA/pykarstnsim.git" }
+pykarstnsim = { git = "https://github.com/ISSKA/pykarstnsim.git" }
 pykarstnsim-demo = { workspace = true }
 
 [build-system]
