@@ -27,8 +27,10 @@ class SimulationParameters(BaseModel):
     search_radius: Literal["auto"] | float = "auto"
     inception_surface_constraint_weight: float = 1.0
     max_inception_surface_distance: Literal["auto"] | float = "auto"
-    density_sampling_modifier: float = 2.0
-    """How should sampling be affected by permeability? 1.0 = no effect, > 1.0 = more points in permable areas"""
+    r_min_pervious: Literal["auto"] | float = "auto"
+    """Poisson sampling minimum distance for pervious units. (fraction of normalized max dimension)"""
+    r_min_impervious: Literal["auto"] | float = "auto"
+    """Poisson sampling minimum distance for impervious units. (fraction of normalized max dimension)"""
 
 
 class PyKarstNSimArgs(BaseModel):

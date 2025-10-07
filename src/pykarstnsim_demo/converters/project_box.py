@@ -1,4 +1,5 @@
 import logging
+from typing import Literal
 
 import numpy as np
 from pykarstnsim.models import ProjectBox
@@ -22,7 +23,8 @@ def load_project_box(
     compute_resolution: Point3DInt,
     voxels: np.ndarray,
     voxels_units: list[int],
-    density_modifier: float,
+    r_min_pervious: Literal["auto"] | float = "auto",
+    r_min_impervious: Literal["auto"] | float = "auto",
 ) -> ProjectBox:
 
     units = stratigraphy.root
@@ -77,8 +79,15 @@ def load_project_box(
     densities = [NO_VALUE] * (cells_u * cells_v * cells_w)
     karstification_potential = [NO_VALUE] * (cells_u * cells_v * cells_w)
 
-    base_density = cells_w / w[2]
-    sparse_density = base_density * density_modifier
+    if r_min_pervious == "auto":
+        base_density = cells_w / w[2]
+    else:
+        base_density = r_min_pervious
+    if r_min_impervious == "auto":
+        sparse_density = base_density * 2
+    else:
+        sparse_density = r_min_impervious
+
     if base_density > 1 or sparse_density > 1:
         raise ValueError(
             f"Density modifier too high, resulting density > 1 (base={base_density}, sparse={sparse_density})"

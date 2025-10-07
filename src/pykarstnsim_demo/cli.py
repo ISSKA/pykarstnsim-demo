@@ -78,11 +78,18 @@ def parse_args() -> PyKarstNSimArgs:
         help="Maximum distance to inception surface (float) or 'auto'",
     )
     parser.add_argument(
-        "--density-sampling-modifier",
-        dest="density_sampling_modifier",
-        type=float,
+        "--r-min-pervious",
+        dest="r_min_pervious",
+        type=_auto_or_float,
         default=None,
-        help="Sampling modifier applied in low permeability zones",
+        help="Poisson sampling minimum distance for pervious units (float) or 'auto'",
+    )
+    parser.add_argument(
+        "--r-min-impervious",
+        dest="r_min_impervious",
+        type=_auto_or_float,
+        default=None,
+        help="Poisson sampling minimum distance for impervious units (float) or 'auto'",
     )
 
     args, _ = parser.parse_known_args()
@@ -99,7 +106,8 @@ def parse_args() -> PyKarstNSimArgs:
         "search_radius",
         "inception_surface_constraint_weight",
         "max_inception_surface_distance",
-        "density_sampling_modifier",
+        "r_min_pervious",
+        "r_min_impervious",
     ):
         value = getattr(args, field)
         if value is not None:

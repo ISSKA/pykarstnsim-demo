@@ -38,7 +38,8 @@ def main(
         vk_project.compute_resolution,
         vk_project.voxels,
         vk_project.voxels_units.root,
-        vk_project.simulation_params.density_sampling_modifier,
+        vk_project.simulation_params.r_min_pervious,
+        vk_project.simulation_params.r_min_impervious,
     )
     dem = Surface.from_dem_grid(
         vk_project.surface_data,
